@@ -311,13 +311,18 @@ def batch(
     raise typer.Exit(code)
 
 
-@app.callback()
-def _main(
-    version: bool = typer.Option(False, "--version", help="显示版本"),
-):
-    if version:
+def _version_callback(value: bool) -> None:
+    if value:
         console.print(f"mtest {__version__}")
         raise typer.Exit()
+
+
+@app.callback()
+def _main(
+    version: bool = typer.Option(None, "--version", help="显示版本",
+                                 callback=_version_callback, is_eager=True),
+):
+    """模型一键测试平台（Ascend 910B + vllm-ascend）。"""
 
 
 if __name__ == "__main__":
