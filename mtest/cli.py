@@ -273,6 +273,44 @@ def report_compare(
     console.print(Markdown(md))
 
 
+@app.command()
+def web(
+    host: str = typer.Option("127.0.0.1", "--host"),
+    port: int = typer.Option(8765, "--port"),
+):
+    """启动结果管理台（只读浏览 results/，Ctrl-C 退出）。"""
+    from .webapp import run_web
+
+    run_web(host, port, console)
+
+
+@app.command()
+def batch(
+    config: list[Path] = typer.Option(..., "-c", "--config", exists=True,
+                                      help="模型配置（可多次指定）"),
+    parallel: int = typer.Option(1, "--parallel", min=1, max=8,
+                                 help="并行 run 数（同机严谨对比请用 1）"),
+    auto_port: bool = typer.Option(False, "--auto-port",
+                                    help="并行时自动分配冲突端口"),
+    suite: str = typer.Option(None, "--suite"),
+    skip_serve: bool = typer.Option(False, "--skip-serve"),
+    keep_alive: bool = typer.Option(False, "--keep-alive"),
+    dry_run: bool = typer.Option(False, "--dry-run"),
+):
+    """批量运行多个模型配置，输出 batch 汇总。"""
+    import asyncio
+
+    from .batch import run_batch
+
+    paths = [str(p) for p in config]
+    opts = RunOptions(
+        suites=[s.strip() for s in suite.split(",")] if suite else None,
+        skip_serve=skip_serve, keep_alive=keep_alive, dry_run=dry_run)
+    code = asyncio.run(run_batch(paths, opts, console,
+                                 parallel=parallel, auto_port=auto_port))
+    raise typer.Exit(code)
+
+
 @app.callback()
 def _main(
     version: bool = typer.Option(False, "--version", help="显示版本"),
