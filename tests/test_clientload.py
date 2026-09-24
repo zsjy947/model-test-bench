@@ -21,7 +21,10 @@ def test_threads_sampler():
 
 def test_proc_cpu_sampler_delta():
     sample = proc_cpu_sampler()  # 第一次建立基线
-    # 消耗一点 CPU 后应有读数（可能为 0.x，但键存在）
+    # 确保 wall > 0（Windows monotonic 分辨率 ~15ms，需要消耗一点时间）
+    t0 = time.monotonic()
+    while time.monotonic() - t0 < 0.05:
+        sum(i * i for i in range(1000))
     row = sample()
     assert "proc_cpu_pct" in row
 
