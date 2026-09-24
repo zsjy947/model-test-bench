@@ -191,6 +191,8 @@ def list_models():
 @app.command()
 def validate(
     config: Path = typer.Option(..., "-c", "--config", exists=True),
+    lint_args: bool = typer.Option(False, "--lint-args",
+                                    help="对 serve.args 做已知参数提示式检查"),
 ):
     """配置校验 + dry-run 打印生成的 vllm 命令。"""
     cfg = _load(config)
@@ -207,11 +209,33 @@ def validate(
         console.print("[yellow]serve.command 逃生舱生效（上述命令为整体替代命令）[/yellow]")
     console.print(f"[bold]客户端[/bold]: {cfg.client.base_url}")
     console.print(f"[bold]启用套件[/bold]: {cfg.enabled_suites()}")
+    if lint_args:
+        from .doctor import lint_serve_args
+        check = lint_serve_args(cfg)
+        style = {"ok": "green", "warn": "yellow", "fail": "red"}[check.status]
+        console.print(f"[{style}][bold]args lint[/bold]: {check.detail}[/{style}]")
+        if check.hint:
+            console.print(f"  [dim]→ {check.hint}[/dim]")
     if cfg.warnings:
         for w in cfg.warnings:
             console.print(f"[yellow]警告: {w}[/yellow]")
     else:
         console.print("[green]校验通过，无警告[/green]")
+
+
+@app.command()
+def doctor(
+    config: Path = typer.Option(None, "-c", "--config", exists=True,
+                                help="模型配置（可选；提供后额外检查 TP/路径/端口）"),
+):
+    """环境预检：运行时 / NPU / 版本匹配 / 数据完整性 / args lint。"""
+    from .doctor import run_doctor
+
+    cfg = _load(config) if config is not None else None
+    console.print(f"[bold]mtest doctor（{'配置: ' + cfg.model.name if cfg else '全局环境'}）[/bold]")
+    checks = run_doctor(cfg, console)
+    if any(c.status == "fail" for c in checks):
+        raise typer.Exit(code=1)
 
 
 # --------------------------------------------------------------------------- #

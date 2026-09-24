@@ -1,0 +1,78 @@
+# vllm serve 常见参数清单（args lint 咨询性数据）
+#
+# 用途：`mtest doctor` / `mtest validate --lint-args` 对 serve.args 做提示式
+# 检查——不在清单中的参数会以 warn 提示（可能是 vllm-ascend 专有参数、
+# 新版本参数或拼写错误）。透传是设计原则，本清单**不拦截**任何参数。
+#
+# 格式：args 为常见参数名列表（不含 -- 前缀）
+
+args:
+  # 模型与分词
+  - model
+  - tokenizer
+  - tokenizer-mode
+  - task
+  - served-model-name
+  - trust-remote-code
+  - dtype
+  - kv-cache-dtype
+  - max-model-len
+  - quantization
+  - enforce-eager
+  - tensor-parallel-size
+  - pipeline-parallel-size
+  - data-parallel-size
+  - data-parallel-rank
+  - data-parallel-start-port
+  - data-parallel-size-local
+  - data-parallel-backend
+  - enable-expert-parallel
+  - distributed-executor-backend
+  - pipeline-parallel-size
+  # 显存与调度
+  - gpu-memory-utilization
+  - swap-space
+  - cpu-offload-gb
+  - max-num-seqs
+  - max-num-batched-tokens
+  - max-num-prefill-tokens
+  - max-parallel-loading-workers
+  - scheduler-delay-factor
+  - block-size
+  - enable-prefix-caching
+  - prefix-caching-hash-alg
+  - cuda-graph-sizes
+  - ascend-graph-sizes
+  # 采样默认值（服务端默认，可被请求覆盖）
+  - default-max-tokens
+  - rocm
+  # 多模态
+  - limit-mm-per-prompt
+  - mm-processor-kwargs
+  - disable-mm-preprocessor-cache
+  # lora / 杂项
+  - enable-lora
+  - max-loras
+  - max-lora-rank
+  - lora-modules
+  - allowed-local-media
+  - chat-template
+  - chat-template-content-format
+  - response-role
+  - ssl-keyfile
+  - ssl-certfile
+  - api-key
+  - disable-log-requests
+  - disable-log-stats
+  - enable-auto-tool-choice
+  - tool-call-parser
+  - additional-config
+  - compute-config
+  - port
+  - host
+  - seed
+  - uvicorn-log-level
+  - engine-use-ray
+  - worker-extensions
+  - disable-fastapi-docs
+  - vllm-ascend
