@@ -218,6 +218,33 @@ class OcrCfg(BaseModel):
     fault_cases: bool = Field(True, description="是否执行损坏/超大图片容错用例")
 
 
+class AccuracyCfg(BaseModel):
+    """accuracy 精度评测套件（dev 分支扩展，默认关闭）。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = False
+    datasets: str = "data/accuracy/"   # 目录或单个 jsonl；条目按 type 分流
+    max_tokens: int = Field(1024, ge=1)
+    pass_threshold: float = Field(0.8, ge=0, le=1, description="整体准确率阈值")
+
+
+class StabilityCfg(BaseModel):
+    """stability 稳定性长跑套件（dev 分支扩展，默认关闭）。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = False
+    duration_minutes: float = Field(120, ge=0.05, description="长跑时长（分钟，支持小数）")
+    concurrency: int = Field(8, ge=1, description="固定并发")
+    input_len: int = Field(1024, ge=1)
+    output_len: int = Field(128, ge=1)
+    window_minutes: float = Field(10, ge=0.05, description="统计窗口（分钟，支持小数）")
+    max_throughput_decay_pct: float = Field(20.0, ge=0, description="首末窗口吞吐衰减阈值")
+    max_error_rate_pct: float = Field(5.0, ge=0, description="错误率阈值")
+    max_hbm_growth_mb: float = Field(2048.0, ge=0, description="HBM 增长阈值（疑似泄漏）")
+
+
 class TestsCfg(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -226,6 +253,8 @@ class TestsCfg(BaseModel):
     functional: FunctionalCfg = Field(default_factory=FunctionalCfg)
     embedding: EmbeddingCfg = Field(default_factory=EmbeddingCfg)
     ocr: OcrCfg = Field(default_factory=OcrCfg)
+    accuracy: AccuracyCfg = Field(default_factory=AccuracyCfg)
+    stability: StabilityCfg = Field(default_factory=StabilityCfg)
 
 
 class MonitorCfg(BaseModel):
@@ -380,7 +409,7 @@ def load_merged_dict(
 def apply_cli_overrides(cfg: BenchConfig, *, suites: list[str] | None = None,
                         concurrency: list[int] | None = None) -> BenchConfig:
     """应用 CLI 覆盖项（--suite / --concurrency），原地修改并返回。"""
-    known = {"functional", "perf", "longctx", "embedding", "ocr"}
+    known = {"functional", "perf", "longctx", "embedding", "ocr", "accuracy", "stability"}
     if suites is not None:
         unknown = [s for s in suites if s not in known]
         if unknown:

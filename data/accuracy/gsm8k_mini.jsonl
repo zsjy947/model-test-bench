@@ -1,0 +1,20 @@
+{"id": "gsm-001", "type": "math", "question": "一个班级有 32 名学生，其中一半是女生。女生有多少名？", "answer": "16"}
+{"id": "gsm-002", "type": "math", "question": "书架上有 5 层，每层放 12 本书。一共有多少本书？", "answer": "60"}
+{"id": "gsm-003", "type": "math", "question": "一台机器每小时生产 240 个零件，工作 7 小时共生产多少个？", "answer": "1680"}
+{"id": "gsm-004", "type": "math", "question": "小明有 85 元，买书花了 37 元，还剩多少元？", "answer": "48"}
+{"id": "gsm-005", "type": "math", "question": "一辆汽车以每小时 60 公里的速度行驶 3.5 小时，行驶了多少公里？", "answer": "210"}
+{"id": "gsm-006", "type": "math", "question": "某商品原价 200 元，打八折后售价是多少元？", "answer": "160"}
+{"id": "gsm-007", "type": "math", "question": "一根绳子长 96 米，剪成 8 米一段，可以剪成几段？", "answer": "12"}
+{"id": "gsm-008", "type": "math", "question": "甲乙两地相距 450 公里，一列火车 3 小时走完全程，平均速度是每小时多少公里？", "answer": "150"}
+{"id": "gsm-009", "type": "math", "question": "一个长方形长 15 厘米，宽 8 厘米，面积是多少平方厘米？", "answer": "120"}
+{"id": "gsm-010", "type": "math", "question": "一打铅笔有 12 支，7 打共有多少支？", "answer": "84"}
+{"id": "gsm-011", "type": "math", "question": "某班 40 人参加考试，及格率为 85%，及格的有多少人？", "answer": "34"}
+{"id": "gsm-012", "type": "math", "question": "苹果每千克 6.5 元，买 8 千克需要多少元？", "answer": "52"}
+{"id": "gsm-013", "type": "math", "question": "当前温度是 12 摄氏度，上升 9 度后是多少摄氏度？", "answer": "21"}
+{"id": "gsm-014", "type": "math", "question": "一个正方形边长 9 米，周长是多少米？", "answer": "36"}
+{"id": "gsm-015", "type": "math", "question": "图书馆有 1200 本书，借出 345 本后还剩多少本？", "answer": "855"}
+{"id": "gsm-016", "type": "math", "question": "一部电影时长 150 分钟，等于多少小时？", "answer": "2.5"}
+{"id": "gsm-017", "type": "math", "question": "工厂计划生产 5000 件产品，已完成 3200 件，还差多少件？", "answer": "1800"}
+{"id": "gsm-018", "type": "math", "question": "三个连续自然数之和是 51，其中最大的数是多少？", "answer": "18"}
+{"id": "gsm-019", "type": "math", "question": "一箱苹果重 25 千克，20 箱共重多少千克？", "answer": "500"}
+{"id": "gsm-020", "type": "math", "question": "某数的一半加上 10 等于 35，这个数是多少？", "answer": "50"}

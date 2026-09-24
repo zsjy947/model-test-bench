@@ -7,8 +7,9 @@ from typing import Type
 from ..config import BenchConfig
 from .base import RunContext, Suite, SuiteResult, SUITE_ERROR, SUITE_FAILED, SUITE_PASSED, SUITE_SKIPPED  # noqa: F401
 
-# 执行顺序：functional 冒烟先行（快速失败），再压测类
-_ORDER = ["functional", "perf", "longctx", "embedding", "ocr"]
+# 执行顺序：functional 冒烟先行（快速失败），accuracy 次之（固定题量便宜），
+# 再压测类，stability 最耗时放最后
+_ORDER = ["functional", "accuracy", "perf", "longctx", "embedding", "ocr", "stability"]
 _REGISTRY: dict[str, Type[Suite]] = {}
 
 
@@ -20,13 +21,16 @@ def register(cls: Type[Suite]) -> Type[Suite]:
 
 def _load_builtin() -> None:
     # 延迟导入避免循环依赖
+    from .accuracy import AccuracySuite
     from .embedding import EmbeddingSuite
     from .functional import FunctionalSuite
     from .longctx import LongctxSuite
     from .ocr import OcrSuite
     from .perf import PerfSuite
+    from .stability import StabilitySuite
 
-    for cls in (FunctionalSuite, PerfSuite, LongctxSuite, EmbeddingSuite, OcrSuite):
+    for cls in (FunctionalSuite, AccuracySuite, PerfSuite, LongctxSuite,
+                EmbeddingSuite, OcrSuite, StabilitySuite):
         register(cls)
 
 

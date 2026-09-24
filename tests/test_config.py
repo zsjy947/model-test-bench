@@ -138,7 +138,7 @@ def test_cli_overrides_suites():
 
 def test_cli_overrides_unknown_suite():
     with pytest.raises(ConfigError):
-        apply_cli_overrides(make_cfg(), suites=["accuracy"])
+        apply_cli_overrides(make_cfg(), suites=["no-such-suite"])
 
 
 def test_cli_overrides_concurrency():

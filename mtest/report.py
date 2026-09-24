@@ -222,12 +222,55 @@ def _functional_section(result: dict) -> str:
     return "\n".join(lines)
 
 
+def _accuracy_section(result: dict) -> str:
+    m = result.get("metrics", {})
+    by = m.get("by_dataset", {})
+    lines = [f"总体准确率 **{m.get('accuracy', 0):.1%}**（{m.get('passed')}/{m.get('total')}，"
+             f"阈值 {m.get('pass_threshold'):.0%}）"]
+    if by:
+        lines += ["", "| 题集 | 正确/总数 | 准确率 |", "|---|---:|---:|"]
+        for src, agg in sorted(by.items()):
+            lines.append(f"| {src} | {agg['passed']}/{agg['total']} | {agg['accuracy']:.1%} |")
+    failed = m.get("failed_ids") or []
+    if failed:
+        lines += ["", f"答错题目：{', '.join(map(str, failed))}"]
+    lines += ["", "⚠ 固定小样本（各 20 题）适合冒烟级精度回归筛查，"
+              "不能替代完整 GSM8K/C-Eval 评测。"]
+    return "\n".join(lines)
+
+
+def _stability_section(result: dict) -> str:
+    m = result.get("metrics", {})
+    lines = [f"长跑 {m.get('duration_minutes', 0):.1f} 分钟，并发 {m.get('concurrency')}，"
+             f"输入 {m.get('input_len')} tok / 输出 {m.get('output_len')} tok"]
+    windows = m.get("windows") or []
+    if windows:
+        lines += ["", "| 窗口 | 请求 | 成功率 | RPS | 输出 tok/s |", "|---:|---:|---:|---:|---:|"]
+        for w in windows:
+            lines.append(f"| {w['window']} | {w.get('requests')} | {_pct(w.get('success_rate'))} "
+                         f"| {_fmt(w.get('rps'), nd=2)} | {_fmt(w.get('output_tps'), nd=1)} |")
+    checks = m.get("checks") or {}
+    if checks:
+        lines += ["", "| 检查 | 实测 | 阈值 | 结论 |", "|---|---:|---:|---|"]
+        for name, c in checks.items():
+            verdict = "✅" if c.get("pass") else "❌"
+            note = f"（{c['note']}）" if c.get("note") else ""
+            lines.append(f"| {name} | {_fmt(c.get('value'), nd=2)} | {c.get('threshold')} "
+                         f"| {verdict}{note} |")
+    slope = m.get("rps_slope_per_window")
+    if slope is not None:
+        lines += ["", f"RPS 逐窗口线性回归斜率：{slope:+.4f}（负值=持续衰减趋势）"]
+    return "\n".join(lines)
+
+
 _SECTIONS = {
     "perf": ("perf 性能压测（矩阵：input_len × 并发）", _perf_section),
     "longctx": ("longctx 长序列专项", _longctx_section),
     "embedding": ("embedding 专项", _embedding_section),
     "ocr": ("ocr 专项", _ocr_section),
     "functional": ("functional 功能冒烟", _functional_section),
+    "accuracy": ("accuracy 精度评测（小样本）", _accuracy_section),
+    "stability": ("stability 稳定性长跑", _stability_section),
 }
 
 

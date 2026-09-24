@@ -81,6 +81,23 @@ tests:
     # num_requests: 60
     # fault_cases: true   # 损坏/超大图片容错用例
 
+  # ---- dev 分支扩展套件（默认关闭，见 docs/EXTENSIONS.md）----
+  accuracy:                 # 精度评测（GSM8K 风格 + 客观题小样本）
+    enabled: false
+    # datasets: data/accuracy/
+    # max_tokens: 1024
+    # pass_threshold: 0.8
+  stability:                # 稳定性长跑（固定并发 N 分钟）
+    enabled: false
+    # duration_minutes: 120
+    # concurrency: 8
+    # input_len: 1024
+    # output_len: 128
+    # window_minutes: 10
+    # max_throughput_decay_pct: 20
+    # max_error_rate_pct: 5
+    # max_hbm_growth_mb: 2048
+
 monitor:
   enabled: true
   npu_interval: 5        # 采样间隔秒
