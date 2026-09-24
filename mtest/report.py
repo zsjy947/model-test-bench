@@ -271,6 +271,17 @@ def build_conclusions(payload: dict) -> list[str]:
         usage = npu["hbm_used_max_mb"] / npu["hbm_total_mb"]
         if usage > 0.95:
             out.append(f"NPU HBM 峰值占用 {usage:.0%}，接近上限，长序列/高并发注意 OOM")
+    client = (payload.get("npu") or {}).get("client", {})
+    cpu_count = payload.get("environment", {}).get("cpu_count")
+    load_max = client.get("loadavg_1m_max")
+    if load_max is not None and cpu_count and load_max > cpu_count * 0.8:
+        out.append(f"客户端 1m 负载峰值 {load_max:.1f}（CPU {cpu_count} 核的 "
+                   f"{load_max / cpu_count:.0%}），压测端可能接近瓶颈，"
+                   "高并发档指标存疑（可换机压测验证）")
+    proc_cpu = client.get("proc_cpu_pct_max")
+    if proc_cpu is not None and proc_cpu > 90:
+        out.append(f"客户端进程 CPU 峰值 {proc_cpu:.0f}%（单核口径），"
+                   "SSE 解析占用偏高，关注压测端瓶颈")
     if payload.get("environment", {}).get("npu"):
         out.append(f"NPU：{payload['environment']['npu'].get('npu_count')} 卡，"
                    f"单卡 HBM {payload['environment']['npu'].get('hbm_total_mb')} MB")

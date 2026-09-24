@@ -50,6 +50,12 @@
 {% endfor %}
 采样明细见 `npu_samples.csv`（间隔 {{ payload.npu.interval_s }}s
 {%- if payload.npu.degraded %}，⚠ 采样期间发生降级{% endif %}）。
+{% if payload.npu.client and payload.npu.client.n_samples %}
+客户端负载（压测端瓶颈归因，明细见 `client_samples.csv`）：
+loadavg 1m 峰值 {{ payload.npu.client.loadavg_1m_max or "-" }}，
+进程 CPU 峰值 {{ payload.npu.client.proc_cpu_pct_max or "-" }}%（单核口径），
+线程峰值 {{ payload.npu.client.threads_max or "-" }}。
+{% endif %}
 {% else %}
 本次运行未采集 NPU 指标（monitor 关闭或采样不可用）。
 {% endif %}

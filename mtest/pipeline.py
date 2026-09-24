@@ -97,8 +97,10 @@ async def run_pipeline(cfg: BenchConfig, opts: RunOptions, console) -> RunSummar
 
     monitor: NPUMonitor | None = None
     if cfg.monitor.enabled:
+        from .clientload import make_client_samplers
         monitor = NPUMonitor(interval=cfg.monitor.npu_interval,
-                             csv_path=run_dir / "npu_samples.csv", console=console)
+                             csv_path=run_dir / "npu_samples.csv", console=console,
+                             extra_samplers=make_client_samplers())
         monitor.start()
 
     launcher = create_launcher(cfg, run_dir, console)
@@ -195,6 +197,7 @@ async def run_pipeline(cfg: BenchConfig, opts: RunOptions, console) -> RunSummar
             "degraded": monitor.degraded,
             "samples": len(monitor.samples),
             "summary": summarize_npu(monitor.samples),
+            "client": monitor.client_load_summary(),
             "csv": str(run_dir / "npu_samples.csv"),
         } if monitor is not None else None),
         "warnings": [*cfg.warnings, *(w for r in suite_results for w in r.warnings)],

@@ -122,6 +122,7 @@ class NPUMonitor:
         self.command = list(command)
         self.extra_samplers = extra_samplers or []
         self.samples: list[NPUSample] = []
+        self.client_samples: list[dict] = []
         self.degraded = False
         self.failure_count = 0
         self._phase = "idle"
@@ -130,6 +131,9 @@ class NPUMonitor:
         self._thread: threading.Thread | None = None
         self._csv_fh = None
         self._csv_writer = None
+        self._client_csv_fh = None
+        self._client_csv_writer = None
+        self._client_cols_order: list[str] = []
 
     # -- 生命周期 ------------------------------------------------------- #
     def start(self) -> None:
@@ -142,6 +146,10 @@ class NPUMonitor:
             self._csv_writer.writerow(
                 ["timestamp", "epoch", "phase", "npu", "aicore_util_pct",
                  "hbm_used_mb", "hbm_total_mb", "power_w", "temp_c"])
+        if self.csv_path is not None and self.extra_samplers:
+            client_path = self.csv_path.parent / "client_samples.csv"
+            self._client_csv_fh = open(client_path, "w", newline="", encoding="utf-8")
+            self._client_csv_writer = csv.writer(self._client_csv_fh)
         self._thread = threading.Thread(target=self._loop, name="npu-monitor", daemon=True)
         self._thread.start()
 
@@ -153,6 +161,9 @@ class NPUMonitor:
         if self._csv_fh is not None:
             self._csv_fh.close()
             self._csv_fh = None
+        if self._client_csv_fh is not None:
+            self._client_csv_fh.close()
+            self._client_csv_fh = None
 
     def _loop(self) -> None:
         while not self._stop.is_set():
@@ -160,6 +171,13 @@ class NPUMonitor:
             self._stop.wait(self.interval)
 
     def _sample_once(self) -> None:
+        # 客户端侧采样独立于 npu-smi 成败（即使 NPU 采样降级也持续记录）
+        client_cols: dict[str, Any] = {}
+        for sampler in self.extra_samplers:
+            try:
+                client_cols.update(sampler())
+            except Exception:  # noqa: BLE001 - 附加采样器失败不影响主采样
+                pass
         try:
             cp = subprocess.run(self.command, capture_output=True, text=True, timeout=15,
                                 encoding="utf-8", errors="replace")
@@ -167,15 +185,19 @@ class NPUMonitor:
             with self._lock:
                 phase = self._phase
             sample = NPUSample(ts=time.time(), phase=phase, chips=chips)
-            extra_cols: dict[str, Any] = {}
-            for sampler in self.extra_samplers:
-                try:
-                    extra_cols.update(sampler())
-                except Exception:  # noqa: BLE001 - 附加采样器失败不影响主采样
-                    pass
             with self._lock:
                 self.samples.append(sample)
-                self._last_extra = extra_cols
+                if client_cols:
+                    row = {"timestamp": datetime.fromtimestamp(sample.ts).isoformat(
+                        timespec="seconds"), "epoch": f"{sample.ts:.1f}", "phase": phase,
+                        **client_cols}
+                    self.client_samples.append(row)
+                    if self._client_csv_writer is not None:
+                        if not self._client_cols_order:
+                            self._client_cols_order = list(row)
+                            self._client_csv_writer.writerow(self._client_cols_order)
+                        self._client_csv_writer.writerow(
+                            [row.get(k, "") for k in self._client_cols_order])
             if self._csv_writer is not None:
                 ts_str = datetime.fromtimestamp(sample.ts).isoformat(timespec="seconds")
                 for chip in chips:
@@ -185,6 +207,8 @@ class NPUMonitor:
                         chip.power_w, chip.temp_c])
                 if self._csv_fh is not None:
                     self._csv_fh.flush()
+            if self._client_csv_fh is not None:
+                self._client_csv_fh.flush()
             if self.degraded:
                 self._say("[green]NPU 采样已恢复[/green]")
             self.degraded = False
@@ -196,6 +220,22 @@ class NPUMonitor:
                           f"{type(exc).__name__}: {exc}[/yellow]")
             if self.failure_count >= 3:
                 self.degraded = True
+
+    def client_load_summary(self) -> dict[str, Any]:
+        """客户端负载峰值摘要（压测端瓶颈归因，§12 R5）。"""
+        rows = self.client_samples
+        if not rows:
+            return {}
+        out: dict[str, Any] = {"n_samples": len(rows)}
+
+        def _peak(key: str) -> float | None:
+            vals = [r[key] for r in rows if isinstance(r.get(key), (int, float))]
+            return max(vals) if vals else None
+
+        out["loadavg_1m_max"] = _peak("loadavg_1m")
+        out["proc_cpu_pct_max"] = _peak("proc_cpu_pct")
+        out["threads_max"] = _peak("threads")
+        return out
 
     def _say(self, msg: str) -> None:
         if self.console is not None:
@@ -214,11 +254,6 @@ class NPUMonitor:
             yield
         finally:
             self.set_phase(prev)
-
-    @property
-    def last_extra(self) -> dict[str, Any]:
-        with self._lock:
-            return getattr(self, "_last_extra", {})
 
 
 # --------------------------------------------------------------------------- #
