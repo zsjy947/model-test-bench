@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "model-test-bench"
+version = "0.1.0"
+description = "一键模型测试平台：面向 Ascend 910B + vllm-ascend 的性能压测 / 功能冒烟 / 长序列 / embedding / OCR 测试闭环"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "model-test-bench maintainers" }]
+keywords = ["benchmark", "vllm", "vllm-ascend", "ascend", "910B", "llm", "npu"]
+
+dependencies = [
+    "typer>=0.9",
+    "pydantic>=2.5",
+    "PyYAML>=6.0",
+    "aiohttp>=3.9",
+    "jinja2>=3.1",
+    "rich>=13.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.4"]
+
+[project.scripts]
+mtest = "mtest.cli:app"
+
+[tool.setuptools.packages.find]
+include = ["mtest*"]
+
+[tool.setuptools.package-data]
+mtest = ["templates/*.j2", "data/*.yaml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
