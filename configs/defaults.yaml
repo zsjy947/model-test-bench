@@ -1,0 +1,86 @@
+# ============================================================================ #
+# mtest 全局默认配置（设计 §3.2）
+#
+# 三层合并：configs/defaults.yaml ← configs/models/<model>.yaml ← CLI 覆盖项
+# 规则：dict 递归深合并；list 与标量整体覆盖（不逐项合并）。
+# 模型配置只写差异项，其余全部继承本文件。
+# ============================================================================ #
+
+model:
+  name:                  # 模型标识（用于报告/目录命名）
+  path:                  # 模型权重路径
+  type: llm              # llm | embedding | multimodal
+  served_name:           # vllm --served-model-name，缺省取 path 尾段
+  trust_remote_code: true
+
+serve:
+  mode: process          # process | docker | external
+  host: 0.0.0.0
+  port: 8000
+  startup_timeout: 1800  # 秒，健康检查超时
+  env_init:              # 启动前环境激活命令串
+    # 例: source /usr/local/Ascend/ascend-toolkit/set_env.sh && conda activate vllm
+  args:                  # 自动生成 vllm serve 命令行参数
+    tensor-parallel-size: 8
+    max-model-len: 32768
+    gpu-memory-utilization: 0.9
+    dtype: float16
+  command: null          # 逃生舱：非空则整体替代自动生成的启动命令
+  docker:
+    image:               # 昇腾 vllm 镜像
+    devices: [0, 1, 2, 3, 4, 5, 6, 7]
+    mounts: []           # 模型目录等挂载，如 /data/models:/data/models:ro
+    extra_args: []       # docker run 附加参数
+
+client:
+  base_url: http://127.0.0.1:8000/v1   # 同机默认；可指向远端
+  api_key: null
+  request_timeout: 600
+
+tests:
+  perf:
+    enabled: true
+    dataset: prompts     # prompts | random | 自定义 jsonl 路径
+    input_lens: [128, 1024, 4096]
+    output_len: 256
+    concurrency: [1, 8, 32, 64]
+    duration: 120        # 每档时长秒（与 num_requests 双上限，先到为准）
+    num_requests: 200
+    rounds: 3            # 每档重复次数，取均值
+    warmup: 2            # 每档预热请求数
+    stream: true
+  longctx:
+    enabled: true
+    input_lens: [16384, 32768]
+    concurrency: [1, 8]
+    output_len: 128
+    # 扩展字段（可用，默认值见 mtest/config.py::LongctxCfg）：
+    # duration: 600       # 每档时长秒
+    # num_requests: 32
+    # rounds: 1
+    # warmup: 1
+  functional:
+    enabled: true
+    cases: data/cases/   # 内置用例集，支持追加自定义 yaml 用例
+  embedding:
+    enabled: true
+    batch_sizes: [1, 8, 32, 128]
+    concurrency: [1, 8, 32]
+    dim: null            # 声明维度，用于校验；null 则取首次响应
+    # 扩展字段（可用，默认值见 mtest/config.py::EmbeddingCfg）：
+    # duration: 60        # 每格时长秒
+    # num_requests: 100
+    # similarity_min_separation: 0.15   # 区分度 sanity 最小间隔
+  ocr:
+    enabled: true
+    image_dir: data/images/ocr
+    ground_truth: null   # 可选 json（文件名→标准答案）
+    concurrency: [1, 8]
+    # 扩展字段（可用，默认值见 mtest/config.py::OcrCfg）：
+    # duration: 120
+    # num_requests: 60
+    # fault_cases: true   # 损坏/超大图片容错用例
+
+monitor:
+  enabled: true
+  npu_interval: 5        # 采样间隔秒
