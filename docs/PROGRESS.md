@@ -1,6 +1,6 @@
 # PROGRESS.md — 操作进度与后续计划
 
-> 更新时间：2026-09-25 ｜ 分支：`main`（M1–M4 已完成）
+> 更新时间：2026-09-25 ｜ 分支：`main`（M1–M4 已完成）＋ `dev`（§12/§13 已完成）
 
 ## 里程碑状态（对照设计 §11）
 
@@ -86,3 +86,43 @@
 2. **§13 扩展突破**：accuracy 套件（GSM8K 风格固定子集 + 客观题）、stability
    套件（固定并发长跑 + 吞吐衰减/错误率/HBM 增长检测）、Web 管理台（复用引擎库）、
    多实例并行压测调度。详见 `docs/EXTENSIONS.md`。
+
+---
+
+# dev 分支进度（2026-09-25 完成）
+
+## §12 风险缓解（详见 docs/RISKS.md）
+
+- [x] **R1**：`mtest doctor` 环境预检（运行时/NPU 卡数 vs TP/模型路径/端口/
+      docker/数据完整性）+ `version_matrix.yaml` 静态匹配表（咨询性）+
+      `mtest validate --lint-args` 参数提示式检查
+- [x] **R3**：doctor 对 npu-smi 可用性与解析独立检查（多版本 fixture 单测在
+      主分支已备）
+- [x] **R4**：longctx 自适应降档（探测命中长度超限/OOM 错误 → 二分降档重试
+      ≤2 次，轨迹入 metrics）
+- [x] **R5**：客户端负载采样 `client_samples.csv`（loadavg/进程 CPU/线程数）
+      + summary 瓶颈归因结论
+- [x] 客户端 HTTP 错误保留响应体片段（供错误模式识别）
+
+## §13 扩展突破（详见 docs/EXTENSIONS.md）
+
+- [x] **accuracy 套件**：自研 GSM8K 风格 20 题 + 客观题 20 题题库、答案提取
+      评分（数字/选项字母）、分题集准确率与阈值判定
+- [x] **stability 套件**：固定并发长跑 + 窗口聚合，吞吐衰减/错误率/HBM 增长
+      三项阈值检查（duration/window 支持小数分钟）
+- [x] **Web 管理台**：`mtest web`（aiohttp 零新依赖）：运行列表/详情/对比/
+      JSON API
+- [x] **batch 调度**：`mtest batch` 多配置顺序/并行（信号量限流 + 端口冲突
+      检查与 --auto-port 自动分配 + batch 汇总报告）
+
+## dev 分支验证
+
+- 单测 110 个全绿（新增 doctor/clientload/longctx-adaptive/accuracy/
+  stability/web+batch 共 33 个）
+- `mtest doctor`、`mtest web`（本机起服冒烟）、CLI dry-run 冒烟通过
+
+## 剩余事项
+
+- [ ] 在目标机（8×910B + vllm-ascend）完成真实闭环验证（单测不依赖 NPU）
+- [ ] accuracy 接入官方 GSM8K/C-Eval 数据集（许可与加载器）
+- [ ] dev → main 合并（建议策略见 EXTENSIONS.md 末节）

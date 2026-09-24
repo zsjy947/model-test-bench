@@ -22,9 +22,14 @@ mtest --version
 mtest run     -c <yaml> [--suite ...] [--concurrency ...] [--skip-serve] [--keep-alive] [--dry-run]
 mtest serve   up|down|status|logs -c <yaml> [--tail N]
 mtest list
-mtest validate -c <yaml>
+mtest validate -c <yaml> [--lint-args]
 mtest report  show <run_id>
 mtest report  compare <run_id_a> <run_id_b> [--out file.md]
+
+# —— dev 分支扩展（见 docs/EXTENSIONS.md）——
+mtest doctor  [-c <yaml>]          # 环境预检：NPU/版本匹配/端口/路径/args lint
+mtest web     [--host] [--port]    # 结果管理台（只读浏览器）
+mtest batch   -c a.yaml -c b.yaml [--parallel N] [--auto-port] [--suite ...]
 ```
 
 ## 3. 典型工作流
@@ -94,6 +99,19 @@ REPORT_GUIDE.md。
 | `--dry-run` | 打印将生成的 vllm 命令与启用套件，不做任何启动 |
 
 退出码：0=全部通过；1=存在失败套件或运行中止；2=配置/参数错误。
+
+## 2.5 dev 分支扩展命令
+
+- `mtest doctor [-c <yaml>]`：起服务前环境体检（NPU 卡数 vs TP、模型路径、
+  端口占用、vllm/vllm-ascend 版本匹配表、内置数据完整性）。有 fail 项时退出码 1。
+- `mtest validate -c <yaml> --lint-args`：serve.args 不在已知参数清单时提示
+  （咨询性，透传不受影响）。
+- `mtest web --port 8765`：启动只读结果管理台（运行列表/详情/对比/JSON API）。
+- `mtest batch -c a.yaml -c b.yaml --parallel 2 --auto-port`：批量运行多配置，
+  输出 batch 汇总；并行时端口冲突自动分配（严谨性能对比请用默认顺序模式）。
+- 新增套件（默认关闭，配置或 `--suite` 启用）：
+  - `accuracy`：GSM8K 风格 20 题 + 客观题 20 题的小样本精度回归筛查
+  - `stability`：固定并发长跑（默认 120 分钟），检测吞吐衰减/错误率/HBM 增长
 
 ## 5. 三类模型的套件映射
 
