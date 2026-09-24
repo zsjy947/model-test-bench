@@ -1,0 +1,74 @@
+# mtest 测试报告：{{ payload.run_id }}
+
+> 生成时间 {{ payload.created_at }} ｜ mtest v{{ payload.mtest_version }} ｜
+> 总耗时 {{ "%.0f" | format(payload.total_duration_s or 0) }}s
+
+## 模型与服务
+
+| 项 | 值 |
+|---|---|
+| 模型 | {{ model.name }}（{{ model.type }}） |
+| 权重路径 | {{ model.path }} |
+| served-model-name | {{ model.served_name or model.path.split('/') | last }} |
+| 服务模式 | {{ payload.serve.mode }}{% if not payload.serve.managed %}（不管起停）{% endif %} |
+| 启动耗时 | {{ "-" if payload.serve.startup_seconds is none else "%.0f" | format(payload.serve.startup_seconds) ~ "s" }} |
+| vllm 启动参数 | `{{ payload.serve.command_preview }}` |
+
+## 环境信息
+
+| 项 | 值 |
+|---|---|
+| 主机 | {{ env_info.hostname }}（{{ env_info.platform }}） |
+| Python | {{ env_info.python }} ｜ CPU {{ env_info.cpu_count }} 核 |
+| vllm / vllm-ascend | {{ env_info.vllm_version_pip or "-" }} / {{ env_info.vllm_ascend_version_pip or "-" }} |
+| 服务端版本 | {{ env_info.server_version or "-" }} |
+| NPU | {{ env_info.npu.npu_count if env_info.npu else "-" }} 卡 × HBM {{ env_info.npu.hbm_total_mb if env_info.npu else "-" }} MB |
+| npu-smi | {{ env_info.npu.npu_smi_header if env_info.npu else "-" }} |
+
+## 套件总览
+
+| 套件 | 状态 | 耗时 |
+|---|---|---:|
+{% for s in suites -%}
+| {{ s.name }} | {{ s.status }} | {{ "%.0f" | format(s.duration_s or 0) }}s |
+{% endfor %}
+
+{% for section in sections %}
+## {{ section.title }}（{{ section.status }}）
+
+{{ section.md }}
+
+{% endfor %}
+
+## NPU 指标（按阶段）
+
+{% if npu_rows %}
+| 阶段 | AICore 峰值 | HBM 峰值 | 功耗峰值 | 温度峰值 |
+|---|---:|---:|---:|---:|
+{% for r in npu_rows -%}
+| {{ r.phase }} | {{ r.aicore_max }} | {{ r.hbm_max }} | {{ r.power_max }} | {{ r.temp_max }} |
+{% endfor %}
+采样明细见 `npu_samples.csv`（间隔 {{ payload.npu.interval_s }}s
+{%- if payload.npu.degraded %}，⚠ 采样期间发生降级{% endif %}）。
+{% else %}
+本次运行未采集 NPU 指标（monitor 关闭或采样不可用）。
+{% endif %}
+
+## 告警
+
+{% if payload.warnings %}
+{% for w in payload.warnings -%}
+- {{ w }}
+{% endfor %}
+{% else %}
+无
+{% endif %}
+
+## 结论与建议
+
+{% for c in conclusions -%}
+- {{ c }}
+{% endfor %}
+
+---
+*原始指标见 `metrics.json`；服务日志见 `vllm.log`；本报告由 mtest 自动生成。*
