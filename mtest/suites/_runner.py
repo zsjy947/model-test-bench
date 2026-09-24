@@ -20,7 +20,11 @@ T = TypeVar("T")
 
 def record_from_result(res: ChatResult, *, suite: str, input_len: int, concurrency: int,
                        round_idx: int, seq: int) -> ChatRecord:
-    """ChatResult → ChatRecord；成功率口径：HTTP 200 且 finish_reason ∈ {stop,length}。"""
+    """ChatResult → ChatRecord；成功率口径：HTTP 200 且 finish_reason ∈ {stop,length}。
+
+    error 保留完整错误串（如 ``http:400:This model's maximum context length...``），
+    便于 longctx 自适应降档等模式识别；统计类别时按 ``:`` 前缀归并。
+    """
     ok = res.ok and res.finish_reason in ("stop", "length")
     return ChatRecord(
         suite=suite,
@@ -30,7 +34,7 @@ def record_from_result(res: ChatResult, *, suite: str, input_len: int, concurren
         seq=seq,
         ok=ok,
         status=res.status,
-        error=None if ok else (res.error_kind() or f"finish:{res.finish_reason}"),
+        error=None if ok else (res.error or f"finish:{res.finish_reason}"),
         ttft=res.ttft,
         e2e=res.e2e,
         prompt_tokens=res.prompt_tokens,

@@ -161,8 +161,9 @@ class BenchClient:
             ) as resp:
                 e2e = time.perf_counter() - t0
                 if resp.status != 200:
-                    return ChatResult(ok=False, status=resp.status, error=f"http:{resp.status}",
-                                      e2e=e2e)
+                    snippet = (await resp.text())[:160].replace("\n", " ")
+                    return ChatResult(ok=False, status=resp.status,
+                                      error=f"http:{resp.status}:{snippet}", e2e=e2e)
                 data = await resp.json(content_type=None)
         except asyncio.TimeoutError:
             return ChatResult(ok=False, error="timeout", e2e=time.perf_counter() - t0)
@@ -207,8 +208,9 @@ class BenchClient:
             ) as resp:
                 status = resp.status
                 if resp.status != 200:
+                    snippet = (await resp.text())[:160].replace("\n", " ")
                     return ChatResult(ok=False, status=resp.status,
-                                      error=f"http:{resp.status}",
+                                      error=f"http:{resp.status}:{snippet}",
                                       e2e=time.perf_counter() - t0)
                 async for raw_line in resp.content:
                     line = raw_line.decode("utf-8", "replace").strip()
@@ -290,9 +292,9 @@ class BenchClient:
             ) as resp:
                 e2e = time.perf_counter() - t0
                 if resp.status != 200:
-                    body = (await resp.text())[:300]
+                    snippet = (await resp.text())[:160].replace("\n", " ")
                     return EmbedResult(ok=False, status=resp.status,
-                                       error=f"http:{resp.status}", e2e=e2e)
+                                       error=f"http:{resp.status}:{snippet}", e2e=e2e)
                 data = await resp.json(content_type=None)
         except asyncio.TimeoutError:
             return EmbedResult(ok=False, error="timeout", e2e=time.perf_counter() - t0)

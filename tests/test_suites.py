@@ -84,7 +84,7 @@ def test_closed_loop_failure_recording():
         suite="perf", input_len=1, concurrency=2, duration_s=5, num_requests=9))
     failed = [r for r in records if not r.ok]
     assert len(failed) == 3
-    assert failed[0].error == "http"
+    assert failed[0].error.startswith("http")  # 完整错误串，类别按 : 前缀归并
 
 
 def test_run_suite_error_wrapped(tmp_path):
