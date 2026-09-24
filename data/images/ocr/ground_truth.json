@@ -1,0 +1,7 @@
+{
+  "print_zh_640x480.png": "人工智能推理平台测试样张\n模型一键测试平台使用说明\n第一，支持一键起停服务与自动化测试。\n第二，覆盖性能、长序列与功能冒烟。\n第三，采集昇腾芯片利用率与显存峰值。\n第四，自动生成 Markdown 分析报告。",
+  "print_en_1280x720.png": "Model Test Bench Sample Sheet\nOne-command benchmark for LLM inference.\n1. Automatic service start, health check and teardown.\n2. Performance, long-context and functional suites.\n3. NPU utilization and HBM peak collection.\n4. Markdown report and metrics JSON generation.",
+  "table_zh_1920x1080.png": "套件\t指标\t单位\nperf\tRPS / TTFT\treq/s, s\nlongctx\tprefill tps\ttok/s\nembedding\tsent/s\tsent/s\nocr\timg/s, CER\timg/s, -",
+  "mixed_zh_num_800x600.png": "订单号：20260924-0001\n金额：壹佰贰拾叁元伍角\n状态：已发货 ABC-123",
+  "small_zh_384x288.png": "小字号样例 A7X-99"
+}

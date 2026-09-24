@@ -1,0 +1,61 @@
+# ============================================================================ #
+# 模型配置模板 —— 新模型接入从这里开始
+#
+# 用法：cp configs/models/_template.yaml configs/models/<your-model>.yaml
+#       然后只改 model 三要素（name / path / type）和 serve.args，
+#       其余字段全部继承 configs/defaults.yaml（dict 深合并，list 整体覆盖）。
+#
+# 校验：mtest validate -c configs/models/<your-model>.yaml
+# ============================================================================ #
+
+model:
+  name: my-model            # 模型标识（用于报告/目录命名，建议与目录名一致）
+  path: /data/models/my-model   # 模型权重路径（本地目录）
+  type: llm                 # llm | embedding | multimodal（决定执行哪些套件）
+  served_name:              # 可选；缺省取 path 尾段作为 --served-model-name
+  trust_remote_code: true
+
+serve:
+  mode: process             # process | docker | external
+  # env_init: source /usr/local/Ascend/ascend-toolkit/set_env.sh && conda activate vllm
+  args:
+    tensor-parallel-size: 2     # TP 分卡：≤8B→1/2/4，14-27B→4/8，32B→8
+    max-model-len: 32768
+    gpu-memory-utilization: 0.9
+    dtype: float16
+    # 布尔值 true → 单 flag（如 disable-log-stats: true → --disable-log-stats）
+    # dict → --additional-config '<json>'（vllm-ascend torchair 图模式等）
+    # additional-config:
+    #   torchair_graph_config:
+    #     enabled: true
+    # swap-space: 4
+    # max-num-seqs: 256
+  # command: null           # 逃生舱：GOT-OCR 等特殊分支/容器内脚本场景，
+  #                         # 非空则整体替代自动生成的启动命令
+  # docker:                 # mode=docker 时必填
+  #   image: quay.io/ascend/vllm-ascend:v0.9.2-dev
+  #   devices: [0, 1]
+  #   mounts:
+  #     - /data/models:/data/models:ro
+
+client:
+  base_url: http://127.0.0.1:8000/v1   # 同机默认；压远端服务改这里
+
+tests:
+  perf:
+    enabled: true
+    dataset: prompts        # prompts | random | 自定义 jsonl 路径
+    input_lens: [128, 1024, 4096]
+    concurrency: [1, 8, 32, 64]
+  longctx:
+    input_lens: [16384, 32768]   # 超过 max-model-len 会自动封顶裁剪
+  functional:
+    enabled: true
+  # embedding:              # type=embedding 时生效
+  #   dim: 1024
+  # ocr:                    # type=multimodal 时生效
+  #   ground_truth: data/images/ocr/ground_truth.json
+
+monitor:
+  enabled: true
+  npu_interval: 5

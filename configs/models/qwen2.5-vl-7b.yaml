@@ -1,0 +1,32 @@
+# Qwen2.5-VL-7B —— 多模态（TP=4，走 ocr 套件；perf/longctx 自动禁用）
+model:
+  name: qwen2.5-vl-7b
+  path: /data/models/Qwen2.5-VL-7B-Instruct
+  type: multimodal
+
+serve:
+  mode: process
+  env_init: >-
+    source /usr/local/Ascend/ascend-toolkit/set_env.sh
+    && conda activate vllm
+  args:
+    tensor-parallel-size: 4
+    max-model-len: 32768
+    gpu-memory-utilization: 0.9
+    dtype: float16
+    disable-log-stats: true
+    limit-mm-per-prompt:
+      image: 1              # dict 参数透传为 --limit-mm-per-prompt '{"image":1}'
+
+client:
+  base_url: http://127.0.0.1:8000/v1
+
+tests:
+  ocr:
+    enabled: true
+    image_dir: data/images/ocr
+    ground_truth: data/images/ocr/ground_truth.json
+    concurrency: [1, 8]
+
+# 备注：GOT-OCR 等特殊模型请改用 serve.command 逃生舱（整体替代启动命令），
+# 并保持 type: multimodal 以启用 ocr 套件。

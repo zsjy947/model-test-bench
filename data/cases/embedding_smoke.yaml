@@ -1,0 +1,20 @@
+# embedding 功能冒烟用例（专项质量指标在 embedding 套件中）
+
+- id: embedding-basic
+  applies_to: [embedding]
+  type: embedding_basic
+  request:
+    texts:
+      - "mtest embedding 冒烟：大模型推理服务测试。"
+      - "mtest embedding smoke test for inference service."
+  expect:
+    non_empty: true
+
+- id: embedding-repeat-consistency
+  applies_to: [embedding]
+  type: embedding_basic
+  request:
+    texts: ["同一段文本重复编码必须得到相同向量。"]
+  expect:
+    non_empty: true
+    repeat_consistent: true

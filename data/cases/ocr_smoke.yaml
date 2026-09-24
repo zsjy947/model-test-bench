@@ -1,0 +1,37 @@
+# OCR / 多模态功能冒烟用例（专项质量与性能在 ocr 套件中）
+
+- id: ocr-basic-print-zh
+  applies_to: [multimodal]
+  type: ocr_basic
+  request:
+    image: data/images/ocr/print_zh_640x480.png
+    prompt: 识别图中所有文字，按行原样输出。
+    max_tokens: 512
+  expect:
+    non_empty: true
+    no_mojibake: true
+    contains: ["模型一键测试平台"]
+
+- id: ocr-basic-table
+  applies_to: [multimodal]
+  type: ocr_basic
+  request:
+    image: data/images/ocr/table_zh_1920x1080.png
+    prompt: 识别表格中的全部文字。
+    max_tokens: 768
+  expect:
+    non_empty: true
+    no_mojibake: true
+    contains: ["longctx"]
+
+- id: ocr-fault-corrupt
+  applies_to: [multimodal]
+  type: ocr_fault
+  request:
+    image: data/images/ocr_fault/corrupt.png
+
+- id: ocr-fault-huge
+  applies_to: [multimodal]
+  type: ocr_fault
+  request:
+    image: data/images/ocr_fault/huge.png

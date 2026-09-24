@@ -1,0 +1,30 @@
+# Qwen2.5-7B-Instruct —— llm 基线示例（TP=2）
+model:
+  name: qwen2.5-7b-instruct
+  path: /data/models/Qwen2.5-7B-Instruct
+  type: llm
+
+serve:
+  mode: process
+  env_init: >-
+    source /usr/local/Ascend/ascend-toolkit/set_env.sh
+    && conda activate vllm
+  args:
+    tensor-parallel-size: 2
+    max-model-len: 32768
+    gpu-memory-utilization: 0.9
+    dtype: float16
+    disable-log-stats: true
+
+client:
+  base_url: http://127.0.0.1:8000/v1
+
+tests:
+  perf:
+    dataset: prompts
+    input_lens: [128, 1024, 4096]
+    concurrency: [1, 8, 32, 64]
+    duration: 120
+    rounds: 3
+  longctx:
+    input_lens: [16384, 32768]

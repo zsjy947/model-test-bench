@@ -1,0 +1,28 @@
+# BGE-M3 —— embedding 模型（TP=1，--task embed 必需）
+model:
+  name: bge-m3
+  path: /data/models/bge-m3
+  type: embedding
+
+serve:
+  mode: process
+  env_init: >-
+    source /usr/local/Ascend/ascend-toolkit/set_env.sh
+    && conda activate vllm
+  args:
+    tensor-parallel-size: 1
+    max-model-len: 8192
+    gpu-memory-utilization: 0.9
+    dtype: float16
+    task: embed
+
+client:
+  base_url: http://127.0.0.1:8000/v1
+
+tests:
+  # perf / longctx 对 embedding 自动禁用（配置校验阶段处理）
+  embedding:
+    enabled: true
+    batch_sizes: [1, 8, 32, 128]
+    concurrency: [1, 8, 32]
+    dim: 1024               # 声明维度用于校验

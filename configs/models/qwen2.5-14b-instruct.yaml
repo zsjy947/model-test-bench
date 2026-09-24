@@ -1,0 +1,29 @@
+# Qwen2.5-14B-Instruct —— llm（TP=4，14-27B 建议 4/8 卡）
+model:
+  name: qwen2.5-14b-instruct
+  path: /data/models/Qwen2.5-14B-Instruct
+  type: llm
+
+serve:
+  mode: process
+  env_init: >-
+    source /usr/local/Ascend/ascend-toolkit/set_env.sh
+    && conda activate vllm
+  args:
+    tensor-parallel-size: 4
+    max-model-len: 32768
+    gpu-memory-utilization: 0.9
+    dtype: float16
+    disable-log-stats: true
+    max-num-seqs: 256
+
+client:
+  base_url: http://127.0.0.1:8000/v1
+
+tests:
+  perf:
+    dataset: prompts
+    input_lens: [128, 1024, 4096]
+    concurrency: [1, 8, 32, 64]
+  longctx:
+    input_lens: [16384, 32768]

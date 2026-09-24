@@ -267,6 +267,35 @@ class BenchConfig(BaseModel):
                 f"serve.args['tensor-parallel-size']={tp} 非法，必须 ∈ {{1,2,4,8}}"
             )
 
+        # 类型-套件匹配（先于长度裁剪，避免对将禁用的套件产生冗余告警）
+        if self.model.type == "llm":
+            if self.tests.embedding.enabled:
+                self.tests.embedding.enabled = False
+                warns.append("embedding 套件仅适用于 embedding 模型，llm 已自动禁用")
+            if self.tests.ocr.enabled:
+                self.tests.ocr.enabled = False
+                warns.append("ocr 套件仅适用于 multimodal 模型，llm 已自动禁用")
+        if self.model.type == "embedding":
+            if self.tests.perf.enabled:
+                self.tests.perf.enabled = False
+                warns.append("embedding 模型不支持 perf 压测套件，已自动禁用")
+            if self.tests.longctx.enabled:
+                self.tests.longctx.enabled = False
+                warns.append("embedding 模型不支持 longctx 长序列套件，已自动禁用")
+            if self.tests.ocr.enabled:
+                self.tests.ocr.enabled = False
+                warns.append("ocr 套件仅适用于 multimodal 模型，embedding 已自动禁用")
+        if self.model.type == "multimodal":
+            if self.tests.perf.enabled:
+                self.tests.perf.enabled = False
+                warns.append("multimodal 模型不走 perf 套件（请使用 ocr 套件），已自动禁用")
+            if self.tests.longctx.enabled:
+                self.tests.longctx.enabled = False
+                warns.append("longctx 套件当前仅支持 llm 文本模型，multimodal 已自动禁用")
+            if self.tests.embedding.enabled:
+                self.tests.embedding.enabled = False
+                warns.append("embedding 套件仅适用于 embedding 模型，multimodal 已自动禁用")
+
         mml = self.serve.max_model_len()
         if mml is not None:
             for suite_name in ("perf", "longctx"):
@@ -301,34 +330,6 @@ class BenchConfig(BaseModel):
                 if not dedup:
                     warns.append(f"[{suite_name}] 裁剪后无可用档位，套件自动禁用")
                     suite.enabled = False
-
-        if self.model.type == "llm":
-            if self.tests.embedding.enabled:
-                self.tests.embedding.enabled = False
-                warns.append("embedding 套件仅适用于 embedding 模型，llm 已自动禁用")
-            if self.tests.ocr.enabled:
-                self.tests.ocr.enabled = False
-                warns.append("ocr 套件仅适用于 multimodal 模型，llm 已自动禁用")
-        if self.model.type == "embedding":
-            if self.tests.perf.enabled:
-                self.tests.perf.enabled = False
-                warns.append("embedding 模型不支持 perf 压测套件，已自动禁用")
-            if self.tests.longctx.enabled:
-                self.tests.longctx.enabled = False
-                warns.append("embedding 模型不支持 longctx 长序列套件，已自动禁用")
-            if self.tests.ocr.enabled:
-                self.tests.ocr.enabled = False
-                warns.append("ocr 套件仅适用于 multimodal 模型，embedding 已自动禁用")
-        if self.model.type == "multimodal":
-            if self.tests.perf.enabled:
-                self.tests.perf.enabled = False
-                warns.append("multimodal 模型不走 perf 套件（请使用 ocr 套件），已自动禁用")
-            if self.tests.longctx.enabled:
-                self.tests.longctx.enabled = False
-                warns.append("longctx 套件当前仅支持 llm 文本模型，multimodal 已自动禁用")
-            if self.tests.embedding.enabled:
-                self.tests.embedding.enabled = False
-                warns.append("embedding 套件仅适用于 embedding 模型，multimodal 已自动禁用")
 
         self.warnings = warns
         return warns

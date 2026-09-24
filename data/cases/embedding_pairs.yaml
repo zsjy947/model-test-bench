@@ -1,0 +1,15 @@
+# embedding 区分度 sanity 用例：相似对/无关对（embedding 套件质量检查）
+# label: similar（语义相近）| unrelated（无关）
+# 报告输出两组余弦分布 + 间隔，而非只给 pass/fail
+
+pairs:
+  - { a: "今天天气晴朗，适合出门散步。", b: "今日天晴，适合外出走走。", label: similar }
+  - { a: "这个模型推理延迟很低。", b: "该模型的响应速度非常快。", label: similar }
+  - { a: "如何优化数据库查询性能？", b: "怎样提升数据库查询的效率？", label: similar }
+  - { a: "The server crashed last night.", b: "The service went down yesterday evening.", label: similar }
+  - { a: "机器学习模型需要大量数据训练。", b: "训练机器学习模型离不开海量样本。", label: similar }
+  - { a: "今天天气晴朗，适合出门散步。", b: "量子计算机使用量子比特进行运算。", label: unrelated }
+  - { a: "这个模型推理延迟很低。", b: "红烧肉的做法需要先焯水。", label: unrelated }
+  - { a: "如何优化数据库查询性能？", b: "敦煌壁画的历史可追溯至十六国时期。", label: unrelated }
+  - { a: "The server crashed last night.", b: "Children enjoy playing in the park.", label: unrelated }
+  - { a: "机器学习模型需要大量数据训练。", b: "股票市场今日收盘下跌三个百分点。", label: unrelated }

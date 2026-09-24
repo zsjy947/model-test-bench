@@ -1,0 +1,112 @@
+# LLM 功能冒烟用例（设计 §5.5）
+# 结构化断言：expect 键见 mtest/suites/functional.py::evaluate_chat_expect
+# 支持：status / status_lte / finish_reason / non_empty / contains / not_contains /
+#       no_template_residue / completion_tokens_lte / completion_tokens_gte /
+#       not_truncated / repeats_consistent
+
+- id: chat-basic-zh
+  applies_to: [llm]
+  type: chat
+  request:
+    messages:
+      - role: user
+        content: 你好，请用一句话介绍你自己。
+    max_tokens: 64
+    temperature: 0
+  expect:
+    status: 200
+    non_empty: true
+    no_template_residue: true
+    completion_tokens_lte: 64
+
+- id: chat-finish-reason
+  applies_to: [llm]
+  type: chat
+  request:
+    messages:
+      - role: user
+        content: 从 1 数到 20，用空格分隔。
+    max_tokens: 512
+    temperature: 0
+  expect:
+    finish_reason: [stop]
+    non_empty: true
+
+- id: chat-max-tokens-adherence
+  applies_to: [llm]
+  type: chat
+  request:
+    messages:
+      - role: user
+        content: 请详细介绍一下注意力机制的历史、原理与变体。
+    max_tokens: 32
+    temperature: 0
+  expect:
+    status: 200
+    completion_tokens_lte: 32
+    finish_reason: [length, stop]
+
+- id: chat-stop-string
+  applies_to: [llm]
+  type: chat
+  request:
+    messages:
+      - role: user
+        content: 请连续输出数字：一 二 三 四 五 六 七 八 九 十，然后停止。
+    max_tokens: 256
+    temperature: 0
+    stop: ["六"]
+  expect:
+    finish_reason: [stop]
+    not_contains: ["六"]
+
+- id: chat-temperature0-repeatability
+  applies_to: [llm]
+  type: chat
+  request:
+    messages:
+      - role: user
+        content: 固定回答：请原样输出句子“昇腾算力承载大模型推理”。
+    max_tokens: 64
+  expect:
+    status: 200
+    non_empty: true
+    repeats_consistent: true   # temperature=0 重复请求输出一致
+
+- id: chat-stream-consistency
+  applies_to: [llm]
+  type: stream_consistency
+  request:
+    messages:
+      - role: user
+        content: 用两句话解释什么是吞吐量与延迟。
+    max_tokens: 128
+    temperature: 0
+  expect:
+    status: 200
+    non_empty: true
+    not_truncated: true
+
+- id: chat-empty-input
+  applies_to: [llm]
+  type: chat
+  request:
+    messages:
+      - role: user
+        content: ""
+    max_tokens: 16
+  expect:
+    status_lte: 499          # 空输入：优雅处理（200 或 4xx），不得 5xx
+    not_truncated: true
+
+- id: chat-overlong-input
+  applies_to: [llm]
+  type: chat
+  request:
+    messages:
+      - role: user
+        content: "超长输入占位（overlong_fill_tokens 生效）"
+    overlong_fill_tokens: true   # 按 max-model-len×1.2 填充素材
+    max_tokens: 16
+  expect:
+    status_lte: 499          # 超长输入：截断（200）或 4xx 拒绝，不得 5xx

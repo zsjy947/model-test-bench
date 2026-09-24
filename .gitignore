@@ -11,7 +11,7 @@ venv/
 htmlcov/
 .idea/
 .vscode/
-results/
+results/*
 !results/.gitkeep
 *.log
 .DS_Store
