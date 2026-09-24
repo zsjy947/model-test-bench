@@ -259,7 +259,7 @@ def build_conclusions(payload: dict) -> list[str]:
         if worst and worst[1] < 0.99:
             out.append(f"perf 最差成功率 {worst[1]:.1%}（{worst[0]}），关注错误类别"
                        f"{[c.get('errors') for k, c in matrix.items() if k == worst[0]]}")
-        hi_cc = [(k, c) for k, c in matrix.items() if int(k.split('x')[-1]) >= 32]
+        hi_cc = [(k, c) for k, c in matrix.items() if int(k.split('x')[-1]) >= 8]
         for k, c in hi_cc:
             ttft = (c.get("ttft_s") or {}).get("p99")
             if ttft and ttft > 30:
@@ -287,6 +287,7 @@ def write_reports(run_dir: str | Path, payload: dict) -> Path:
     """写 metrics.json + summary.md；返回 summary 路径。"""
     run_dir = Path(run_dir)
     run_dir.mkdir(parents=True, exist_ok=True)
+    payload.setdefault("schema_version", _SCHEMA_VERSION)
     (run_dir / "metrics.json").write_text(
         json.dumps(payload, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
 

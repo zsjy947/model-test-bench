@@ -105,7 +105,10 @@ def records_to_rows(records: Iterable[ChatRecord]) -> list[dict]:
 
 
 def error_categories(records: Iterable[ChatRecord]) -> dict[str, int]:
-    return dict(Counter(r.error for r in records if not r.ok))
+    """按类别（冒号前缀：connect/timeout/http/parse/truncated）统计失败数。"""
+    cats = Counter((r.error.split(":", 1)[0] if r.error else "error")
+                   for r in records if not r.ok)
+    return dict(cats)
 
 
 def aggregate_chat_stats(records: Sequence[ChatRecord], wall_time: float) -> dict:
