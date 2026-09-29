@@ -38,6 +38,19 @@ def test_scan_runs(tmp_path: Path, monkeypatch):
     assert by_id["r2"]["all_passed"] is False
 
 
+def test_run_id_whitelist_regex():
+    from mtest.webapp import _RUN_ID_RE
+
+    assert _RUN_ID_RE.fullmatch("r1")
+    assert _RUN_ID_RE.fullmatch("20260924-1010_qwen2.5-7b-instruct")
+    assert _RUN_ID_RE.fullmatch("a..b")  # dots after the first char carry no traversal
+    assert not _RUN_ID_RE.fullmatch(".")
+    assert not _RUN_ID_RE.fullmatch("..")
+    assert not _RUN_ID_RE.fullmatch(".hidden")
+    assert not _RUN_ID_RE.fullmatch("a/b")
+    assert not _RUN_ID_RE.fullmatch("a\\b")
+
+
 def test_webapp_endpoints(tmp_path: Path, monkeypatch):
     import mtest.webapp as webapp_mod
 
@@ -69,6 +82,28 @@ def test_webapp_endpoints(tmp_path: Path, monkeypatch):
 
             resp = await client.get("/compare?a=r1&b=r2")
             assert resp.status == 200
+
+            # path escape attempts are rejected with 400 (whitelist)
+            resp = await client.get("/run/bad+id")  # '+' outside whitelist
+            assert resp.status == 400
+            resp = await client.get("/api/run/r1%2F..%2Fsecret")  # encoded '/'
+            assert resp.status == 400
+            resp = await client.get("/run/x%5Cy")  # encoded '\' (win separator)
+            assert resp.status == 400
+            resp = await client.get("/compare?a=../r1&b=r2")
+            assert resp.status == 400
+            resp = await client.get("/compare?a=r1&b=r2;rm")
+            assert resp.status == 400
+            resp = await client.get("/run/.hidden")  # leading dot
+            assert resp.status == 400
+
+            # dotted model names are legitimate run ids and stay browsable
+            _make_run(tmp_path, "20260924-1010_qwen2.5-7b-instruct")
+            resp = await client.get("/run/20260924-1010_qwen2.5-7b-instruct")
+            assert resp.status == 200
+            # NOTE: a literal "/run/.." cannot be asserted over HTTP — the
+            # aiohttp client normalizes dot segments before sending; the
+            # regex-level check below covers it instead.
 
     asyncio.run(_check())
 

@@ -434,6 +434,8 @@ def build_vllm_args(cfg: BenchConfig) -> list[str]:
     - dict → ``--key '<紧凑json>'``（兼容 vllm-ascend additional-config）
     - list → 逗号连接
     - 其余 → ``--key value``
+    - 末尾追加 ``--port`` / ``--host``（来自 serve.port / serve.host；若用户已在
+      serve.args 手写同名参数则跳过，避免重复注入）
     """
     argv = ["vllm", "serve", cfg.model.path]
     if cfg.model.served_name and cfg.model.served_name != Path(cfg.model.path).name:
@@ -452,6 +454,14 @@ def build_vllm_args(cfg: BenchConfig) -> list[str]:
             argv += [f"--{key}", ",".join(str(x) for x in val)]
         else:
             argv += [f"--{key}", str(val)]
+    # Inject serve.port / serve.host (skip when already provided by hand in
+    # serve.args, to avoid duplicated flags). Also applies to the docker mode,
+    # since build_docker_command embeds this argv (--network host still needs
+    # the port to be explicit).
+    if "port" not in cfg.serve.args:
+        argv += ["--port", str(cfg.serve.port)]
+    if "host" not in cfg.serve.args and cfg.serve.host:
+        argv += ["--host", str(cfg.serve.host)]
     return argv
 
 
@@ -487,7 +497,8 @@ def build_docker_command(cfg: BenchConfig, container_name: str | None = None) ->
 
     昇腾设备映射：/dev/davinci<N> + /dev/davinci_manager + /dev/devmm_svm +
     /dev/hisi_hdc；模型目录等通过 ``serve.docker.mounts`` 挂载（容器内路径需与
-    model.path 一致）。
+    model.path 一致）。容器内 vllm 参数复用 :func:`build_vllm_args`（含
+    ``--port`` / ``--host`` 注入，``--network host`` 模式下仍需显式端口）。
     """
     d = cfg.serve.docker
     if not d.image:

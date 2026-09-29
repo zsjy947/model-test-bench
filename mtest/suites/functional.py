@@ -208,7 +208,16 @@ class FunctionalSuite(Suite):
         req = case.get("request", {})
         expect = case.get("expect", {})
         messages = self._build_messages(req)
-        repeats = int(expect.get("repeats_consistent") or req.get("repeats") or 1)
+        # repeats_consistent: True → default 3 repeats; positive int → explicit
+        # repeat count; otherwise fall back to request.repeats (or a single shot).
+        # NOTE: check `rc is True` first — isinstance(True, int) is True.
+        rc = expect.get("repeats_consistent")
+        if rc is True:
+            repeats = 3
+        elif isinstance(rc, int) and rc > 0:
+            repeats = rc
+        else:
+            repeats = int(req.get("repeats") or 1)
         results = []
         for _ in range(repeats):
             res = await self.ctx.client.chat(

@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import abc
+import asyncio
 import json
 import os
 import re
@@ -90,20 +91,22 @@ class BaseLauncher(abc.ABC):
         out_dir = self.run_dir / "serve_failure"
         out_dir.mkdir(parents=True, exist_ok=True)
 
-        (out_dir / "vllm_tail.log").write_text(self.log_tail(200), encoding="utf-8")
+        # log_tail may shell out to `docker logs` and _run spawns subprocesses;
+        # both block, so run them in a worker thread to keep the event loop free.
+        tail = await asyncio.to_thread(self.log_tail, 200)
+        (out_dir / "vllm_tail.log").write_text(tail, encoding="utf-8")
 
         for name, cmd in (
             ("npu_smi.txt", ["npu-smi", "info"]),
             ("process_list.txt", ["bash", "-c", "ps -ef | grep -Ei 'vllm|torch' | grep -v grep"]),
         ):
             try:
-                cp = _run(cmd, timeout=20)
+                cp = await asyncio.to_thread(_run, cmd, timeout=20)
                 (out_dir / name).write_text(cp.stdout or cp.stderr, encoding="utf-8")
             except (OSError, subprocess.SubprocessError):
                 pass  # 非 Linux / 无 npu-smi 环境下静默跳过
 
         # 终端直接打印 ERROR / Traceback / CANN 关键行
-        tail = self.log_tail(200)
         hits = [ln for ln in tail.splitlines() if _ERROR_PATTERN.search(ln)]
         if hits:
             self._say(f"[red]vllm 日志中的错误关键行（{len(hits)} 行）:[/red]")
@@ -168,14 +171,22 @@ class ProcessLauncher(BaseLauncher):
                     os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
                 except (ProcessLookupError, PermissionError):
                     proc.kill()
-                proc.wait(timeout=10)
+                try:
+                    proc.wait(timeout=10)
+                except subprocess.TimeoutExpired:
+                    # Even SIGKILL failed (uninterruptible D state?); give up on
+                    # waiting but still release our handles below.
+                    self._say("[yellow]  SIGKILL 后仍未退出（D 态？），放弃等待[/yellow]")
         else:  # 非 POSIX 开发环境（无进程组语义）
             proc.terminate()
             try:
                 proc.wait(timeout=_STOP_GRACE)
             except subprocess.TimeoutExpired:
                 proc.kill()
-                proc.wait(timeout=10)
+                try:
+                    proc.wait(timeout=10)
+                except subprocess.TimeoutExpired:
+                    self._say("[yellow]  kill 后仍未退出（假死？），放弃等待[/yellow]")
         self._proc = None
         if self._log_fh is not None:
             self._log_fh.close()
@@ -201,13 +212,25 @@ class DockerLauncher(BaseLauncher):
     async def start(self) -> None:
         argv = build_docker_command(self.cfg, self.container)
         self._say(f"[cyan]启动 vllm（docker 模式）:[/cyan] {' '.join(argv)}")
-        cp = _run(argv, timeout=120)
+        try:
+            cp = _run(argv, timeout=120)
+        except subprocess.TimeoutExpired as exc:
+            # docker run hung (e.g. stalled image pull): best-effort removal so
+            # the half-created container does not outlive the failed launch.
+            try:
+                _run(["docker", "rm", "-f", self.container], timeout=30)
+            except (OSError, subprocess.SubprocessError):
+                pass
+            raise ServeError(
+                f"docker run 超时（120s），已尝试清理容器 {self.container}: {exc}") from exc
         if cp.returncode != 0:
             raise ServeError(f"docker run 失败: {cp.stderr.strip()[:500]}")
         self._started = True
         self._say(f"  容器 {self.container} 已创建，日志: docker logs {self.container}")
 
     def _docker_running(self) -> bool:
+        # Stays synchronous: is_dead() is a sync callback polled inside
+        # health.wait_for_health and status() is sync — cannot await here.
         cp = _run(["docker", "inspect", "-f", "{{.State.Running}}", self.container], timeout=15)
         return cp.returncode == 0 and cp.stdout.strip().lower() == "true"
 
@@ -223,6 +246,8 @@ class DockerLauncher(BaseLauncher):
         self._started = False
 
     def log_tail(self, n: int = 200) -> str:
+        # Stays synchronous: passed as the eagerly-evaluated `dead_detail`
+        # argument of wait_for_health (str, not awaitable).
         if self._started:
             cp = _run(["docker", "logs", "--tail", str(n), self.container], timeout=20)
             return cp.stdout + cp.stderr
@@ -291,7 +316,11 @@ class ServeController:
 
     def _write_state(self, data: dict) -> None:
         data["updated_at"] = datetime.now().isoformat(timespec="seconds")
-        self.state_path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        # Atomic write: readers never observe a torn state.json (os.replace is
+        # atomic on both POSIX and Windows).
+        tmp = self.state_path.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        os.replace(tmp, self.state_path)
 
     def _pid_alive(self, pid: int | None) -> bool:
         if not pid:
@@ -308,23 +337,39 @@ class ServeController:
 
     # -- up / down / status / logs -------------------------------------- #
     async def up(self) -> None:
+        # Cross-process placeholder lock: only one `serve up` per model at a
+        # time (os.open with O_CREAT|O_EXCL is atomic on POSIX and Windows).
+        lock_path = self.state_path.with_suffix(".lock")
+        try:
+            lock_fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        except FileExistsError:
+            raise ServeError(f"另一 serve up 进行中（锁文件已存在: {lock_path}）") from None
+        try:
+            await self._up_locked()
+        finally:
+            os.close(lock_fd)
+            lock_path.unlink(missing_ok=True)
+
+    async def _up_locked(self) -> None:
         state = self.read_state()
         if state and self._entity_alive(state):
             self._say(f"[yellow]服务已在运行（{state.get('mode')}，started {state.get('started_at')}）[/yellow]")
             return
+        # create_launcher stays outside the try: if it fails there is no
+        # launcher entity to clean up in the except branch below.
         launcher = create_launcher(self.cfg, self.state_dir, self.console)
-        await launcher.start()
-        if isinstance(launcher, ProcessLauncher):
-            record = {"mode": "process", "pid": launcher._proc.pid if launcher._proc else None}
-        elif isinstance(launcher, DockerLauncher):
-            record = {"mode": "docker", "container": launcher.container}
-        else:
-            record = {"mode": "external"}
-        record["started_at"] = datetime.now().isoformat(timespec="seconds")
-        record["port"] = self.cfg.serve.port
-        record["base_url"] = self.cfg.client.base_url
-        self._write_state(record)
         try:
+            await launcher.start()
+            if isinstance(launcher, ProcessLauncher):
+                record = {"mode": "process", "pid": launcher._proc.pid if launcher._proc else None}
+            elif isinstance(launcher, DockerLauncher):
+                record = {"mode": "docker", "container": launcher.container}
+            else:
+                record = {"mode": "external"}
+            record["started_at"] = datetime.now().isoformat(timespec="seconds")
+            record["port"] = self.cfg.serve.port
+            record["base_url"] = self.cfg.client.base_url
+            self._write_state(record)
             elapsed = await health.wait_for_health(
                 self.cfg.client.base_url, self.cfg.serve.startup_timeout,
                 api_key=self.cfg.client.api_key, console=self.console,

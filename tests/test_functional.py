@@ -1,5 +1,7 @@
 """functional 断言引擎与用例加载测试。"""
 
+import asyncio
+
 from mtest.client import ChatResult
 from mtest.config import BenchConfig, ModelCfg
 from mtest.suites.base import RunContext
@@ -92,3 +94,47 @@ def test_build_messages_overlong(tmp_path):
     msgs = suite._build_messages({"messages": [{"role": "user", "content": "x"}],
                                   "overlong_fill_tokens": True})
     assert len(msgs[0]["content"]) > 32768 * 1.2 * 1.5  # 明显超过 max-model-len
+
+
+class _CountingClient:
+    """记录 chat 调用次数的假客户端。"""
+
+    def __init__(self):
+        self.calls = 0
+
+    async def chat(self, *_a, **_kw):
+        self.calls += 1
+        return ok_result()
+
+
+def _run_chat_case(tmp_path, expect: dict, request: dict | None = None) -> tuple:
+    suite = _suite_ctx(tmp_path)
+    client = _CountingClient()
+    suite.ctx.client = client
+    case = {"id": "c", "type": "chat", "request": request or {}, "expect": expect}
+    return suite, asyncio.run(suite._case_chat(case)), client
+
+
+def test_chat_repeats_bool_true_defaults_to_3(tmp_path):
+    _suite, checks, client = _run_chat_case(tmp_path, {"repeats_consistent": True})
+    assert client.calls == 3
+    assert outcomes(checks)["repeats_consistent"] is True
+
+
+def test_chat_repeats_int_explicit_count(tmp_path):
+    _suite, checks, client = _run_chat_case(tmp_path, {"repeats_consistent": 5})
+    assert client.calls == 5
+    assert outcomes(checks)["repeats_consistent"] is True
+
+
+def test_chat_repeats_falls_back_to_request(tmp_path):
+    _suite, _checks, client = _run_chat_case(
+        tmp_path, {"status": 200}, request={"repeats": 2})
+    assert client.calls == 2
+    # repeats_consistent=False / 缺省时同样回退
+    _suite, _checks, client = _run_chat_case(
+        tmp_path, {"repeats_consistent": False}, request={"repeats": 2})
+    assert client.calls == 2
+    # 完全没有 repeats 相关键 → 单次请求
+    _suite, _checks, client = _run_chat_case(tmp_path, {"status": 200})
+    assert client.calls == 1

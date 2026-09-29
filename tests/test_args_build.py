@@ -1,4 +1,4 @@
-"""vllm 命令行生成测试（设计 §3.3）。"""
+"""vllm 命令行生成测试（设计 §3.3，含 --port/--host 注入）。"""
 
 from mtest.config import (BenchConfig, ModelCfg, build_docker_command,
                           build_process_command, build_serve_command, build_vllm_args,
@@ -77,3 +77,39 @@ def test_container_name_sanitized():
     name = container_name_for(cfg)
     assert all(ch.isalnum() or ch in "-_." for ch in name)
     assert name.startswith("mtest-")
+
+
+def test_port_host_injected():
+    cfg = make_cfg()
+    cfg.serve.port = 8123
+    argv = build_vllm_args(cfg)
+    i = argv.index("--port")
+    assert argv[i + 1] == "8123"
+    assert argv.count("--port") == 1
+    # default host "0.0.0.0" is injected too
+    j = argv.index("--host")
+    assert argv[j + 1] == "0.0.0.0"
+
+
+def test_port_host_not_duplicated_when_in_args():
+    cfg = make_cfg()
+    cfg.serve.port = 8123
+    cfg.serve.args["port"] = 9000
+    cfg.serve.args["host"] = "127.0.0.1"
+    argv = build_vllm_args(cfg)
+    assert argv.count("--port") == 1
+    assert argv[argv.index("--port") + 1] == "9000"
+    assert argv.count("--host") == 1
+    assert argv[argv.index("--host") + 1] == "127.0.0.1"
+
+
+def test_docker_command_includes_port_host():
+    cfg = make_cfg()
+    cfg.serve.mode = "docker"
+    cfg.serve.docker.image = "quay.io/ascend/vllm-ascend:latest"
+    cfg.serve.port = 8123
+    argv = build_docker_command(cfg, "mtest-demo")
+    i = argv.index("--port")
+    assert argv[i + 1] == "8123"
+    assert argv.count("--port") == 1
+    assert argv[argv.index("--host") + 1] == "0.0.0.0"

@@ -120,7 +120,8 @@ embedding / ocr 的冒烟子集见 `embedding_smoke.yaml` / `ocr_smoke.yaml`。
 `status`（int/list）、`status_lte`、`finish_reason`（str/list）、`non_empty`、
 `contains` / `not_contains`（list[str]）、`no_template_residue`、
 `completion_tokens_lte` / `completion_tokens_gte`、`not_truncated`、
-`repeats_consistent`（重复次数，temperature=0）。
+`repeats_consistent`（true=默认重复 3 次；正整数=显式次数；temperature=0
+校验多次输出一致）。
 
 **用例类型**：`chat`、`stream_consistency`、`embedding_basic`、`ocr_basic`、
 `ocr_fault`。自定义示例：

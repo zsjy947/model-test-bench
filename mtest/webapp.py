@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import html
 import json
+import re
 from datetime import datetime
 from pathlib import Path
 
@@ -23,6 +24,18 @@ from aiohttp import web
 
 from .paths import results_dir
 from .report import compare_runs
+
+# Whitelist for run ids used in path construction (blocks "/", "\", ".." path
+# escapes). run ids are generated as "%Y%m%d-%H%M_<sanitized-model-name>"; the
+# sanitized model name may legitimately contain dots (e.g. "qwen2.5-7b"), so
+# dots are allowed after the first character — a leading dot (and thus "..")
+# is still rejected.
+_RUN_ID_RE = re.compile(r"[A-Za-z0-9_\-][A-Za-z0-9._\-]*")
+
+
+def _validate_run_id(run_id: str) -> None:
+    if not _RUN_ID_RE.fullmatch(run_id):
+        raise web.HTTPBadRequest(text=f"invalid run_id: {run_id!r}")
 
 _STYLE = """
 body { font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
@@ -125,6 +138,7 @@ def create_app() -> web.Application:
         return web.Response(text=body, content_type="text/html")
 
     def _load_run(run_id: str) -> tuple[Path, dict] | None:
+        _validate_run_id(run_id)
         run_dir = results_dir() / run_id
         metrics_path = run_dir / "metrics.json"
         if not metrics_path.is_file():
@@ -163,6 +177,8 @@ def create_app() -> web.Application:
         a, b = request.query.get("a", ""), request.query.get("b", "")
         if not (a and b):
             raise web.HTTPBadRequest(text="need ?a=<run_id>&b=<run_id>")
+        _validate_run_id(a)
+        _validate_run_id(b)
         try:
             ma = json.loads((results_dir() / a / "metrics.json").read_text(encoding="utf-8"))
             mb = json.loads((results_dir() / b / "metrics.json").read_text(encoding="utf-8"))
